@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoChatbot - Assistant Automobile IA</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: linear-gradient(135deg, #a8edea 0%, #fed6e3 50%, #d4b8f0 100%);
+            --chat-bg: #ffffff;
+            --msg-bg: #fafafa;
+            --input-bg: #f0f4ff;
+            --border: #e2e8f0;
+            --text: #2d3748;
+            --subtext: #718096;
+            --accent: #7c6fcd;
+            --accent2: #6558b8;
+            --sidebar-bg: #f7f5ff;
+        }
+        body.dark {
+            --bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --chat-bg: #1e1e2e;
+            --msg-bg: #181825;
+            --input-bg: #2a2a3e;
+            --border: #313244;
+            --text: #cdd6f4;
+            --subtext: #a6adc8;
+            --accent: #cba6f7;
+            --accent2: #b4a0e8;
+            --sidebar-bg: #181825;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .app-wrapper {
+            display: flex;
+            width: 100%;
+            max-width: 1000px;
+            height: 92vh;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        }
+
+        /* ===== SIDEBAR HISTORIQUE ===== */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s;
+            flex-shrink: 0;
+        }
+        .sidebar.hidden { width: 0; overflow: hidden; }
+
+        .sidebar-header {
+            padding: 16px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--subtext);
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .history-item {
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            font-size: 13px;
+            color: var(--text);
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item:hover { background: var(--border); }
+        .history-item.active { background: rgba(230,57,80,0.12); color: var(--accent); font-weight: 600; }
+        .history-item .hi-icon { font-size: 16px; flex-shrink: 0; }
+        .history-item .hi-text { overflow: hidden; text-overflow: ellipsis; }
+        .history-item .hi-del {
+            margin-left: auto;
+            opacity: 0;
+            font-size: 14px;
+            color: #ef4444;
+            flex-shrink: 0;
+        }
+        .history-item:hover .hi-del { opacity: 1; }
+
+        .sidebar-empty {
+            text-align: center;
+            padding: 30px 16px;
+            color: var(--subtext);
+            font-size: 13px;
+        }
+
+        /* ===== CHAT PRINCIPAL ===== */
+        .chat-container {
+            flex: 1;
+            background: var(--chat-bg);
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        /* ===== HEADER ===== */
+        .chat-header {
+            background: linear-gradient(135deg, #a8edea 0%, #d4b8f0 100%);
+            color: #3d2f6e;
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-circle {
+            width: 46px; height: 46px;
+            background: white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        .logo-circle svg { width: 34px; height: 34px; }
+        .header-top .logo { font-size: 20px; font-weight: 800; flex: 1; color: #1a2a6e; }
+        .header-top .logo span { font-size: 12px; font-weight: 400; opacity: 0.75; display: block; color: #3d2f6e; margin-top: 1px; }
+
+        .header-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .lang-group {
+            display: flex;
+            background: rgba(255,255,255,0.45);
+            border-radius: 20px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: rgba(61,47,110,0.6);
+            padding: 5px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .lang-btn.active {
+            background: white;
+            color: var(--accent);
+        }
+
+        .new-chat-btn {
+            background: white;
+            color: var(--accent);
+            border: none;
+            padding: 7px 18px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-left: auto;
+            box-shadow: 0 2px 8px rgba(124,111,205,0.2);
+        }
+        .new-chat-btn:hover { opacity: 0.85; }
+
+        .icon-btn {
+            background: rgba(255,255,255,0.5);
+            border: none;
+            color: #3d2f6e;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.8); }
+
+        /* ===== MESSAGES ===== */
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: var(--msg-bg);
+            color: var(--text);
+        }
+
+        .message { margin-bottom: 18px; display: flex; animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user { justify-content: flex-end; }
+
+        .message-content {
+            max-width: 72%;
+            padding: 11px 16px;
+            border-radius: 18px;
+            line-height: 1.55;
+            word-wrap: break-word;
+            font-size: 14.5px;
+        }
+        .message.bot .message-content {
+            background: var(--chat-bg);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+            color: var(--text);
+        }
+        .message.user .message-content {
+            background: linear-gradient(135deg, #a8edea, #d4b8f0);
+            color: #2d2060;
+            border-bottom-right-radius: 4px;
+        }
+        .message-time { font-size: 11px; color: #9ca3af; margin-top: 6px; }
+
+        /* ===== FOOTER MESSAGE (heure + réactions) ===== */
+        .msg-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+            gap: 8px;
+        }
+        .msg-footer .msg-time {
+            font-size: 11px;
+            color: #9ca3af;
+            flex-shrink: 0;
+        }
+        .msg-reactions {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .react-btn {
+            background: #f1f3f5;
+            border: 1px solid #e2e8f0;
+            border-radius: 50%;
+            width: 32px; height: 32px;
+            cursor: pointer;
+            font-size: 15px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, transform 0.15s, border-color 0.15s;
+            flex-shrink: 0;
+            color: #64748b;
+            padding: 0;
+        }
+        body.dark .react-btn { background: #2a2a3e; border-color: #313244; color: #a6adc8; }
+        .react-btn:hover { background: #e2e8f0; transform: scale(1.12); }
+        body.dark .react-btn:hover { background: #313244; }
+        .react-btn.active { background: rgba(124,111,205,0.15); border-color: var(--accent); color: var(--accent); }
+        .react-btn.copied { border-color: #22c55e !important; color: #22c55e !important; }
+
+        /* ===== INPUT ===== */
+        .chat-input-container { background: var(--chat-bg); border-top: 1px solid var(--border); }
+        .image-preview-container { padding: 8px 16px 0; }
+        .image-preview { position: relative; display: inline-block; }
+        .image-preview img { max-height: 72px; border-radius: 10px; border: 2px solid var(--accent); }
+        .remove-img {
+            position: absolute; top: -6px; right: -6px;
+            background: #ef4444; color: white; border: none;
+            border-radius: 50%; width: 20px; height: 20px;
+            cursor: pointer; font-size: 11px;
+        }
+
+        .input-row { display: flex; gap: 8px; padding: 10px 14px; align-items: flex-end; }
+        .chat-input {
+            flex: 1; min-width: 0;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 10px 16px;
+            font-size: 14px;
+            resize: none; outline: none;
+            transition: border-color 0.2s;
+            max-height: 100px;
+            line-height: 1.4;
+            font-family: inherit;
+            color: var(--text);
+        }
+        .chat-input:focus { border-color: var(--accent); }
+
+        .image-btn {
+            background: var(--input-bg); border: 1px solid var(--border);
+            width: 42px; height: 42px; border-radius: 50%;
+            cursor: pointer; font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background 0.2s;
+        }
+        .image-btn:hover { background: var(--border); }
+
+        .voice-btn {
+            background: var(--input-bg); border: 1px solid var(--border);
+            width: 42px; height: 42px; border-radius: 50%;
+            cursor: pointer; color: #64748b;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+        .voice-btn:hover { background: var(--border); }
+        .voice-btn.recording {
+            background: #fee2e2; border-color: #ef4444; color: #ef4444;
+            animation: pulse-red 1s infinite;
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #a8edea, #d4b8f0);
+            color: #2d2060;
+            border: none;
+            padding: 10px 20px; border-radius: 22px;
+            cursor: pointer; font-size: 14px; font-weight: 700;
+            display: flex; align-items: center; gap: 6px;
+            flex-shrink: 0; transition: opacity 0.2s;
+            box-shadow: 0 2px 10px rgba(124,111,205,0.25);
+        }
+        .send-button:hover:not(:disabled) { opacity: 0.85; }
+        .send-button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        /* ===== TYPING ===== */
+        .typing-indicator {
+            display: flex; gap: 5px; padding: 12px 16px;
+            background: var(--chat-bg); border: 1px solid var(--border);
+            border-radius: 18px; border-bottom-left-radius: 4px; width: fit-content;
+        }
+        .typing-dot {
+            width: 7px; height: 7px; background: #9ca3af;
+            border-radius: 50%; animation: typing 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-8px); } }
+
+        .cursor { display: inline-block; animation: blink 0.7s infinite; color: var(--accent); font-weight: bold; }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* ===== WELCOME ===== */
+        .welcome-message { text-align: center; padding: 24px; color: var(--subtext); }
+        .welcome-message h2 { color: var(--accent); margin-bottom: 8px; }
+        .example-questions { margin-top: 16px; text-align: left; }
+        .example-question {
+            background: var(--chat-bg); padding: 9px 14px;
+            border-radius: 10px; margin-bottom: 8px;
+            cursor: pointer; transition: all 0.2s;
+            border: 1px solid var(--border); font-size: 13.5px;
+            color: var(--text);
+        }
+        .example-question:hover { background: var(--input-bg); transform: translateX(4px); }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* ===== SIDEBAR FACTURE BUTTON ===== */
+        .sidebar-facture-btn {
+            margin: 10px 10px 4px;
+            background: linear-gradient(135deg, #a8edea, #d4b8f0);
+            color: #2d2060;
+            border: none;
+            padding: 9px 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            width: calc(100% - 20px);
+            text-align: left;
+            transition: opacity 0.2s;
+        }
+        .sidebar-facture-btn:hover { opacity: 0.85; }
+
+        /* ===== MODAL FACTURE ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal-box {
+            background: #fff;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 780px;
+            max-height: 92vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.35);
+            display: flex;
+            flex-direction: column;
+        }
+        body.dark .modal-box { background: #1e1e2e; color: #cdd6f4; }
+
+        .modal-header {
+            padding: 18px 22px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        body.dark .modal-header { border-color: #313244; }
+        .modal-header h2 { font-size: 17px; font-weight: 800; color: #1a2a6e; }
+        body.dark .modal-header h2 { color: #cba6f7; }
+        .modal-close {
+            background: none; border: none; font-size: 22px;
+            cursor: pointer; color: #9ca3af; line-height: 1;
+        }
+        .modal-close:hover { color: #ef4444; }
+
+        .modal-body { padding: 20px 22px; flex: 1; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 18px;
+            margin-bottom: 18px;
+        }
+        .form-grid.full { grid-template-columns: 1fr; }
+        .form-section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #7c6fcd;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; color: #718096; font-weight: 600; }
+        .form-group input, .form-group select {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 13px;
+            outline: none;
+            background: #f8fafc;
+            color: #2d3748;
+            transition: border-color 0.2s;
+        }
+        body.dark .form-group input, body.dark .form-group select {
+            background: #2a2a3e; border-color: #313244; color: #cdd6f4;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: #7c6fcd; }
+
+        /* Items table */
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 13px; }
+        .items-table th {
+            background: #f1f5f9; text-align: left;
+            padding: 7px 8px; font-size: 11px;
+            font-weight: 700; color: #64748b;
+            text-transform: uppercase; letter-spacing: 0.4px;
+        }
+        body.dark .items-table th { background: #2a2a3e; color: #a6adc8; }
+        .items-table td { padding: 5px 4px; vertical-align: middle; }
+        .items-table input {
+            width: 100%; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 5px 7px; font-size: 13px; background: #f8fafc; color: #2d3748;
+        }
+        body.dark .items-table input { background: #2a2a3e; border-color: #313244; color: #cdd6f4; }
+        .items-table input:focus { outline: none; border-color: #7c6fcd; }
+        .del-row-btn {
+            background: none; border: none; color: #ef4444;
+            cursor: pointer; font-size: 16px; padding: 2px 6px;
+        }
+        .add-row-btn {
+            background: none; border: 1px dashed #7c6fcd;
+            color: #7c6fcd; border-radius: 8px;
+            padding: 6px 14px; font-size: 12px; font-weight: 600;
+            cursor: pointer; margin-top: 6px;
+        }
+        .add-row-btn:hover { background: rgba(124,111,205,0.08); }
+
+        .totals-block {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            font-size: 13px;
+        }
+        .totals-block .total-row { display: flex; gap: 16px; justify-content: flex-end; }
+        .totals-block .total-row span:first-child { color: #718096; }
+        .totals-block .total-row.grand { font-weight: 800; font-size: 15px; color: #1a2a6e; }
+        body.dark .totals-block .total-row.grand { color: #cba6f7; }
+
+        .tva-select-row {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 14px; font-size: 13px;
+        }
+        .tva-select-row label { color: #718096; font-weight: 600; }
+        .tva-select-row select {
+            border: 1px solid #e2e8f0; border-radius: 8px;
+            padding: 5px 10px; font-size: 13px;
+            background: #f8fafc; color: #2d3748;
+        }
+        body.dark .tva-select-row select { background: #2a2a3e; border-color: #313244; color: #cdd6f4; }
+
+        /* Signature */
+        .sig-section { margin-top: 18px; }
+        .sig-canvas-wrap {
+            border: 2px dashed #d4b8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            display: inline-block;
+            cursor: crosshair;
+            background: #fafafa;
+        }
+        body.dark .sig-canvas-wrap { background: #2a2a3e; border-color: #7c6fcd; }
+        #sigCanvas { display: block; }
+        .sig-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .sig-clear-btn {
+            background: none; border: 1px solid #e2e8f0;
+            border-radius: 8px; padding: 5px 14px;
+            font-size: 12px; cursor: pointer; color: #718096;
+        }
+        .sig-clear-btn:hover { border-color: #ef4444; color: #ef4444; }
+
+        .modal-footer {
+            padding: 14px 22px;
+            border-top: 1px solid #e2e8f0;
+            display: flex; gap: 10px; justify-content: flex-end;
+            flex-shrink: 0;
+        }
+        body.dark .modal-footer { border-color: #313244; }
+        .btn-cancel {
+            background: none; border: 1px solid #e2e8f0;
+            border-radius: 10px; padding: 9px 20px;
+            font-size: 13px; cursor: pointer; color: #718096;
+        }
+        .btn-cancel:hover { border-color: #ef4444; color: #ef4444; }
+        .btn-print {
+            background: linear-gradient(135deg, #a8edea, #d4b8f0);
+            color: #2d2060; border: none;
+            border-radius: 10px; padding: 9px 22px;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 2px 10px rgba(124,111,205,0.25);
+        }
+        .btn-print:hover { opacity: 0.85; }
+
+        /* ===== PRINT STYLES (new window approach — no body hiding needed) ===== */
+        #printArea { display: none; }
+    </style>
+</head>
+<body>
+<div class="app-wrapper">
+
+    <!-- MODAL FACTURE -->
+    <div class="modal-overlay" id="factureModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>📄 Nouvelle Facture</h2>
+                <button class="modal-close" onclick="closeFacture()">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Garage info -->
+                <div class="form-section-title">Informations du Garage / Vendeur</div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nom du garage</label><input id="f_garage_nom" placeholder="Ex: Garage Abdou" /></div>
+                    <div class="form-group"><label>Téléphone</label><input id="f_garage_tel" placeholder="0550 000 000" /></div>
+                    <div class="form-group"><label>Adresse</label><input id="f_garage_adr" placeholder="Aïn Mlila, Oum El Bouaghi" /></div>
+                    <div class="form-group"><label>RC / NIF</label><input id="f_garage_rc" placeholder="RC: 00000 / NIF: 000000" /></div>
+                </div>
+
+                <!-- Client info -->
+                <div class="form-section-title">Informations du Client</div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nom du client</label><input id="f_client_nom" placeholder="Nom complet" /></div>
+                    <div class="form-group"><label>Téléphone</label><input id="f_client_tel" placeholder="0550 000 000" /></div>
+                    <div class="form-group"><label>Adresse</label><input id="f_client_adr" placeholder="Adresse du client" /></div>
+                    <div class="form-group"><label>Véhicule</label><input id="f_client_veh" placeholder="Ex: Dacia Logan 2018" /></div>
+                </div>
+
+                <!-- Items -->
+                <div class="form-section-title">Prestations / Pièces</div>
+                <table class="items-table" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th style="width:40%">Description</th>
+                            <th style="width:12%">Qté</th>
+                            <th style="width:20%">Prix unit. (DZD)</th>
+                            <th style="width:18%">Montant (DZD)</th>
+                            <th style="width:10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody"></tbody>
+                </table>
+                <button class="add-row-btn" onclick="addItemRow()">+ Ajouter une ligne</button>
+
+                <!-- TVA -->
+                <div class="tva-select-row" style="margin-top:14px;">
+                    <label>TVA :</label>
+                    <select id="tvaSelect" onchange="updateTotals()">
+                        <option value="0">0% (exonéré)</option>
+                        <option value="9">9%</option>
+                        <option value="19" selected>19%</option>
+                    </select>
+                </div>
+
+                <!-- Totals -->
+                <div class="totals-block" id="totalsBlock">
+                    <div class="total-row"><span>Sous-total HT</span><span id="t_ht">0 DZD</span></div>
+                    <div class="total-row"><span id="t_tva_label">TVA (19%)</span><span id="t_tva">0 DZD</span></div>
+                    <div class="total-row grand"><span>Total TTC</span><span id="t_ttc">0 DZD</span></div>
+                </div>
+
+                <!-- Notes -->
+                <div style="margin-top:14px;">
+                    <div class="form-section-title">Notes / Observations</div>
+                    <div class="form-group"><textarea id="f_notes" rows="2" placeholder="Ex: Garantie 3 mois sur les pièces posées..." style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;background:#f8fafc;color:#2d3748;outline:none;"></textarea></div>
+                </div>
+
+                <!-- Signature -->
+                <div class="sig-section">
+                    <div class="form-section-title">Signature électronique du client</div>
+                    <div class="sig-canvas-wrap">
+                        <canvas id="sigCanvas" width="340" height="110"></canvas>
+                    </div>
+                    <div class="sig-actions">
+                        <button class="sig-clear-btn" onclick="clearSig()">🗑 Effacer</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeFacture()">Annuler</button>
+                <button class="btn-print" onclick="printFacture()">🖨️ Imprimer / Enregistrer PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT AREA (hidden, shown only on print) -->
+    <div id="printArea"></div>
+
+    <!-- SIDEBAR HISTORIQUE -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">🕘 Historique</div>
+        <button class="sidebar-facture-btn" onclick="openFacture()">📄 Nouvelle Facture</button>
+        <div class="history-list" id="historyList">
+            <div class="sidebar-empty" id="historyEmpty">Aucune conversation</div>
+        </div>
+    </div>
+
+    <!-- CHAT PRINCIPAL -->
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-top">
+                <div class="logo-circle">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Car body -->
+                        <ellipse cx="50" cy="72" rx="34" ry="5" fill="#c8dff5" opacity="0.5"/>
+                        <rect x="16" y="58" width="68" height="20" rx="8" fill="#1a3a8f"/>
+                        <!-- Car roof -->
+                        <path d="M30 58 Q34 38 44 34 L56 34 Q66 38 70 58Z" fill="#1a3a8f"/>
+                        <!-- Windows -->
+                        <path d="M34 56 Q37 42 44 38 L50 38 L50 56Z" fill="#a8d4f5" opacity="0.9"/>
+                        <path d="M66 56 Q63 42 56 38 L50 38 L50 56Z" fill="#a8d4f5" opacity="0.9"/>
+                        <!-- Wheels -->
+                        <circle cx="30" cy="78" r="9" fill="#0d1f5c"/>
+                        <circle cx="30" cy="78" r="5" fill="#c8dff5"/>
+                        <circle cx="70" cy="78" r="9" fill="#0d1f5c"/>
+                        <circle cx="70" cy="78" r="5" fill="#c8dff5"/>
+                        <!-- Chat bubble -->
+                        <rect x="54" y="14" width="30" height="20" rx="6" fill="#3b9ef5"/>
+                        <polygon points="60,34 56,40 66,34" fill="#3b9ef5"/>
+                        <circle cx="62" cy="24" r="2.2" fill="white"/>
+                        <circle cx="69" cy="24" r="2.2" fill="white"/>
+                        <circle cx="76" cy="24" r="2.2" fill="white"/>
+                    </svg>
+                </div>
+                <div class="logo">CarBot <span>Assistant Automobile IA — Aïn Mlila</span></div>
+            </div>
+            <div class="header-bar">
+                <div class="lang-group">
+                    <button class="lang-btn active" onclick="setLang('auto', this)">Auto</button>
+                    <button class="lang-btn" onclick="setLang('fr', this)">FR</button>
+                    <button class="lang-btn" onclick="setLang('ar', this)">AR</button>
+                </div>
+                <button class="new-chat-btn" onclick="newChat()">＋ Nouveau chat</button>
+                <button class="icon-btn" onclick="toggleDark()" title="Mode nuit">🌙</button>
+                <button class="icon-btn" onclick="toggleSidebar()" title="Historique">☰</button>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-message" id="welcomeMessage">
+                <h2>Bienvenue ! 👋</h2>
+                <p>Je suis Abdou (Abba), votre mécanicien IA à Aïn Mlila. Posez-moi vos questions :</p>
+                <div class="example-questions">
+                    <div class="example-question" onclick="useExample(this)">🔧 Ma Dacia Logan fait un bruit bizarre en freinant</div>
+                    <div class="example-question" onclick="useExample(this)">💰 Prix des plaquettes de frein pour Renault Symbol ?</div>
+                    <div class="example-question" onclick="useExample(this)">🏪 Où acheter une batterie à Aïn Mlila ?</div>
+                    <div class="example-question" onclick="useExample(this)">🔩 Donne-moi un garage pour réparer mon embrayage</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-input-container">
+            <div id="imagePreviewContainer" class="image-preview-container" style="display:none">
+                <div class="image-preview">
+                    <img id="imagePreview" src="" alt="preview"/>
+                    <button class="remove-img" onclick="removeImage()">✕</button>
+                </div>
+            </div>
+            <div class="input-row">
+                <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)"/>
+                <button class="image-btn" onclick="document.getElementById('imageInput').click()" title="Envoyer une photo">📷</button>
+                <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Message vocal">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                    </svg>
+                </button>
+                <textarea class="chat-input" id="chatInput" placeholder="Décrivez votre problème ou parlez..." rows="1" onkeypress="handleKeyPress(event)"></textarea>
+                <button class="send-button" id="sendButton" onclick="sendMessage()">Envoyer ➤</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:8000/api/chat';
+    const sessionId = 'web-' + Date.now();
+    let isFirstMessage = true;
+    let pendingImage = null;
+    let currentLang = 'auto';
+    let conversations = JSON.parse(localStorage.getItem('autochat_history') || '[]');
+    let currentConvId = null;
+
+    // ===== LANGUE =====
+    const langTags = {
+        fr: ' [LANG:FR]',
+        ar: ' [LANG:AR]',
+        auto: ''
+    };
+
+    function setLang(lang, btn) {
+        currentLang = lang;
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const msgs = document.getElementById('chatMessages');
+        msgs.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
+        msgs.style.textAlign = lang === 'ar' ? 'right' : 'left';
+    }
+
+    // ===== MODE NUIT =====
+    function toggleDark() {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('darkMode', document.body.classList.contains('dark'));
+    }
+    if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark');
+
+    // ===== SIDEBAR =====
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('hidden');
+    }
+
+    // ===== HISTORIQUE =====
+    function saveHistory() {
+        localStorage.setItem('autochat_history', JSON.stringify(conversations));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('historyList');
+        const empty = document.getElementById('historyEmpty');
+        if (conversations.length === 0) {
+            empty.style.display = 'block';
+            list.innerHTML = '';
+            list.appendChild(empty);
+            return;
+        }
+        empty.style.display = 'none';
+        list.innerHTML = '';
+        [...conversations].reverse().forEach(conv => {
+            const item = document.createElement('div');
+            item.className = 'history-item' + (conv.id === currentConvId ? ' active' : '');
+            item.innerHTML = '<span class="hi-icon">💬</span><span class="hi-text">' + conv.title + '</span><span class="hi-del" onclick="deleteConv(event,\'' + conv.id + '\')">🗑</span>';
+            item.onclick = () => loadConv(conv.id);
+            list.appendChild(item);
+        });
+    }
+
+    function deleteConv(e, id) {
+        e.stopPropagation();
+        conversations = conversations.filter(c => c.id !== id);
+        if (currentConvId === id) newChat();
+        else saveHistory();
+    }
+
+    function loadConv(id) {
+        const conv = conversations.find(c => c.id === id);
+        if (!conv) return;
+        currentConvId = id;
+        isFirstMessage = false;
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+        conv.messages.forEach(m => {
+            addMessageHTML(m.text, m.isUser, m.imageUrl, m.time);
+        });
+        renderHistory();
+    }
+
+    function newChat() {
+        currentConvId = 'conv-' + Date.now();
+        isFirstMessage = true;
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+        const welcome = document.createElement('div');
+        welcome.id = 'welcomeMessage';
+        welcome.className = 'welcome-message';
+        welcome.innerHTML = '<h2>Bienvenue ! 👋</h2><p>Je suis Abdou (Abba), votre mécanicien IA.</p><div class="example-questions"><div class="example-question" onclick="useExample(this)">🔧 Ma Dacia Logan fait un bruit bizarre en freinant</div><div class="example-question" onclick="useExample(this)">💰 Prix des plaquettes de frein pour Renault Symbol ?</div><div class="example-question" onclick="useExample(this)">🏪 Où acheter une batterie à Aïn Mlila ?</div><div class="example-question" onclick="useExample(this)">🔩 Donne-moi un garage pour réparer mon embrayage</div></div>';
+        container.appendChild(welcome);
+        renderHistory();
+    }
+
+    // ===== MESSAGES =====
+    function formatTime(date) {
+        return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function msgFooterHTML(time, isUser) {
+        if (isUser) return '<div class="message-time">' + (time || formatTime(new Date())) + '</div>';
+        const t = time || formatTime(new Date());
+        return '<div class="msg-footer">'
+            + '<span class="msg-time">' + t + '</span>'
+            + '<div class="msg-reactions">'
+            + '<button class="react-btn" onclick="toggleReact(this)" title="J\'aime"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3m7-10v3a3 3 0 0 1-3 3H9v4l-2 2v1h12l2-9H14V2a2 2 0 0 0-2-2z"/></svg></button>'
+            + '<button class="react-btn" onclick="toggleReact(this)" title="J\'adore"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>'
+            + '<button class="react-btn" onclick="toggleReact(this)" title="Super"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>'
+            + '<button class="react-btn" onclick="copyMsg(this)" title="Copier"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'
+            + '<button class="react-btn speak-btn" onclick="speakMsg(this)" title="Écouter"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>'
+            + '</div></div>';
+    }
+
+    function addMessageHTML(text, isUser, imageUrl, time) {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = 'message ' + (isUser ? 'user' : 'bot');
+        let imgHtml = imageUrl ? '<img src="' + imageUrl + '" style="max-width:200px;border-radius:10px;margin-bottom:6px;display:block;"/>' : '';
+        div.innerHTML = '<div class="message-content">' + imgHtml + '<span class="msg-text">' + text.replace(/\n/g, '<br>') + '</span>' + msgFooterHTML(time, isUser) + '</div>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+    }
+
+    function addMessage(text, isUser, imageUrl) {
+        const welcome = document.getElementById('welcomeMessage');
+        if (welcome) welcome.style.display = 'none';
+        isFirstMessage = false;
+
+        const time = formatTime(new Date());
+        addMessageHTML(text, isUser, imageUrl, time);
+
+        // Sauvegarder dans l'historique
+        if (!currentConvId) currentConvId = 'conv-' + Date.now();
+        let conv = conversations.find(c => c.id === currentConvId);
+        if (!conv) {
+            const title = text.replace(/[^\w\s\u0600-\u06FF]/g, '').trim().slice(0, 35) || 'Conversation';
+            conv = { id: currentConvId, title: title, messages: [] };
+            conversations.push(conv);
+        }
+        conv.messages.push({ text, isUser, imageUrl: imageUrl || null, time });
+        try { saveHistory(); } catch(e) { console.warn('saveHistory error:', e); }
+    }
+
+    function createTypingBubble() {
+        const welcome = document.getElementById('welcomeMessage');
+        if (welcome) welcome.style.display = 'none';
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = 'message bot';
+        const t = formatTime(new Date());
+        div.innerHTML = '<div class="message-content">'
+            + '<span class="msg-text"><span class="stream-text"></span><span class="cursor">&#9611;</span></span>'
+            + msgFooterHTML(t, false)
+            + '</div>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+    }
+
+    function showTypingIndicator() {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.id = 'typingIndicator';
+        div.className = 'message bot';
+        div.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        const el = document.getElementById('typingIndicator');
+        if (el) el.remove();
+    }
+
+    // ===== IMAGE =====
+    function handleImageSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            const [header, b64] = dataUrl.split(',');
+            const mediaType = header.match(/:(.*?);/)[1];
+            pendingImage = { b64, mediaType, previewUrl: dataUrl };
+            document.getElementById('imagePreview').src = dataUrl;
+            document.getElementById('imagePreviewContainer').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        event.target.value = '';
+    }
+
+    function removeImage() {
+        pendingImage = null;
+        document.getElementById('imagePreviewContainer').style.display = 'none';
+        document.getElementById('imagePreview').src = '';
+    }
+
+    // ===== ENVOI =====
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const sendButton = document.getElementById('sendButton');
+        const message = input.value.trim();
+        if (!message && !pendingImage) return;
+
+        const imageToSend = pendingImage;
+        const imagePreviewUrl = pendingImage ? pendingImage.previewUrl : null;
+
+        input.value = '';
+        input.style.height = 'auto';
+        input.disabled = true;
+        sendButton.disabled = true;
+        removeImage();
+
+        addMessage(message || '📷 Photo envoyée', true, imagePreviewUrl);
+        showTypingIndicator();
+
+        const langSuffix = langTags[currentLang] || '';
+        const finalMessage = message ? message + langSuffix : 'Analyse cette image.' + langSuffix;
+
+        try {
+            const body = {
+                message: finalMessage,
+                session_id: sessionId,
+                image_b64: imageToSend ? imageToSend.b64 : null,
+                media_type: imageToSend ? imageToSend.mediaType : 'image/jpeg'
+            };
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            removeTypingIndicator();
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+
+            const data = await response.json();
+            let replyText = data.response || 'Désolé, pas de réponse.';
+            // Nettoyer le markdown gras/italique
+            replyText = replyText.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/__(.*?)__/g, '$1');
+
+            const bubble = createTypingBubble();
+            const streamText = bubble.querySelector('.stream-text');
+            const cursor = bubble.querySelector('.cursor');
+            const container = document.getElementById('chatMessages');
+
+            let i = 0;
+            function typeNext() {
+                if (i < replyText.length) {
+                    streamText.innerHTML = replyText.slice(0, i + 1).replace(/\n/g, '<br>');
+                    container.scrollTop = container.scrollHeight;
+                    i++;
+                    setTimeout(typeNext, 15);
+                } else {
+                    cursor.remove();
+                    let conv = conversations.find(c => c.id === currentConvId);
+                    if (conv) {
+                        conv.messages.push({ text: replyText, isUser: false, time: formatTime(new Date()) });
+                        try { saveHistory(); } catch(e) {}
+                    }
+                }
+            }
+            typeNext();
+        } catch (error) {
+            removeTypingIndicator();
+            console.error(error);
+            addMessage('Erreur de connexion. Vérifie que le backend tourne sur le port 8000.', false);
+        } finally {
+            input.disabled = false;
+            sendButton.disabled = false;
+            input.focus();
+        }
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function useExample(element) {
+        document.getElementById('chatInput').value = element.textContent.replace(/^[^\w\u0600-\u06FF]+/, '').trim();
+        sendMessage();
+    }
+
+    const textarea = document.getElementById('chatInput');
+    textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // ===== COPIER & VOIX & RÉACTIONS =====
+    function copyMsg(btn) {
+        const msgText = btn.closest('.message-content').querySelector('.msg-text');
+        const text = msgText ? msgText.innerText : '';
+        const origHTML = btn.innerHTML;
+        navigator.clipboard.writeText(text).then(() => {
+            btn.innerHTML = '✅';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.innerHTML = origHTML; btn.classList.remove('copied'); }, 2000);
+        });
+    }
+
+    function toggleReact(btn) {
+        btn.classList.toggle('active');
+    }
+
+    let currentUtterance = null;
+    let currentSpeakBtn = null;
+    const speakIconHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+    const stopIconHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>';
+
+    function speakMsg(btn) {
+        if (currentUtterance) {
+            speechSynthesis.cancel();
+            currentUtterance = null;
+            if (currentSpeakBtn) { currentSpeakBtn.innerHTML = speakIconHTML; currentSpeakBtn.classList.remove('active'); }
+            currentSpeakBtn = null;
+            return;
+        }
+        const msgText = btn.closest('.message-content').querySelector('.msg-text');
+        const text = msgText ? msgText.innerText : '';
+        if (!text) return;
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = currentLang === 'ar' ? 'ar-SA' : 'fr-FR';
+        utter.rate = 0.95;
+        utter.onend = () => {
+            if (currentSpeakBtn) { currentSpeakBtn.innerHTML = speakIconHTML; currentSpeakBtn.classList.remove('active'); }
+            currentUtterance = null; currentSpeakBtn = null;
+        };
+        currentUtterance = utter;
+        currentSpeakBtn = btn;
+        btn.innerHTML = stopIconHTML;
+        btn.classList.add('active');
+        speechSynthesis.speak(utter);
+    }
+
+    // ===== RECONNAISSANCE VOCALE =====
+    let recognition = null;
+    let isRecording = false;
+
+    function toggleVoice() {
+        const btn = document.getElementById('voiceBtn');
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            addMessage("Désolé, ton navigateur ne supporte pas la reconnaissance vocale. Utilise Chrome ou Edge.", false);
+            return;
+        }
+
+        if (isRecording) {
+            recognition.stop();
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = currentLang === 'ar' ? 'ar-DZ' : 'fr-FR';
+        recognition.continuous = false;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+            isRecording = true;
+            btn.classList.add('recording');
+            document.getElementById('chatInput').placeholder = '🎙️ Parle maintenant...';
+        };
+
+        recognition.onresult = (e) => {
+            const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+            document.getElementById('chatInput').value = transcript;
+            if (e.results[e.results.length - 1].isFinal) {
+                recognition.stop();
+                setTimeout(() => sendMessage(), 300);
+            }
+        };
+
+        recognition.onerror = (e) => {
+            console.error('Vocal error:', e.error);
+            stopRecording();
+        };
+
+        recognition.onend = () => stopRecording();
+
+        recognition.start();
+    }
+
+    function stopRecording() {
+        isRecording = false;
+        const btn = document.getElementById('voiceBtn');
+        btn.classList.remove('recording');
+        document.getElementById('chatInput').placeholder = 'Décrivez votre problème ou parlez...';
+    }
+
+    // Init
+    currentConvId = 'conv-' + Date.now();
+    renderHistory();
+    window.onload = () => textarea.focus();
+
+    // ===== FACTURE =====
+    function openFacture() {
+        document.getElementById('factureModal').classList.add('open');
+        if (document.getElementById('itemsBody').children.length === 0) {
+            addItemRow(); addItemRow();
+        }
+        initSig();
+    }
+    function closeFacture() {
+        document.getElementById('factureModal').classList.remove('open');
+    }
+
+    function addItemRow() {
+        const tbody = document.getElementById('itemsBody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td><input type="text" placeholder="Description..." oninput="updateTotals()"/></td>'
+            + '<td><input type="number" value="1" min="1" style="width:60px" oninput="updateTotals()"/></td>'
+            + '<td><input type="number" value="0" min="0" oninput="updateTotals()"/></td>'
+            + '<td class="item-montant" style="font-weight:600;padding-left:8px;">0 DZD</td>'
+            + '<td><button class="del-row-btn" onclick="this.closest(\'tr\').remove();updateTotals()">✕</button></td>';
+        tbody.appendChild(tr);
+        updateTotals();
+    }
+
+    function getItems() {
+        const rows = document.querySelectorAll('#itemsBody tr');
+        return Array.from(rows).map(tr => {
+            const inputs = tr.querySelectorAll('input');
+            const desc = inputs[0].value.trim();
+            const qty = parseFloat(inputs[1].value) || 0;
+            const pu = parseFloat(inputs[2].value) || 0;
+            return { desc, qty, pu, montant: qty * pu };
+        });
+    }
+
+    function updateTotals() {
+        const items = getItems();
+        const ht = items.reduce((s, i) => s + i.montant, 0);
+        const tvaRate = parseFloat(document.getElementById('tvaSelect').value) / 100;
+        const tva = ht * tvaRate;
+        const ttc = ht + tva;
+        const tvaLabel = document.getElementById('tvaSelect').value + '%';
+
+        document.getElementById('t_ht').textContent = fmt(ht) + ' DZD';
+        document.getElementById('t_tva_label').textContent = 'TVA (' + tvaLabel + ')';
+        document.getElementById('t_tva').textContent = fmt(tva) + ' DZD';
+        document.getElementById('t_ttc').textContent = fmt(ttc) + ' DZD';
+
+        // Update per-row montant
+        document.querySelectorAll('#itemsBody tr').forEach((tr, i) => {
+            const cell = tr.querySelector('.item-montant');
+            if (cell && items[i]) cell.textContent = fmt(items[i].montant) + ' DZD';
+        });
+    }
+
+    function fmt(n) { return Math.round(n).toLocaleString('fr-DZ'); }
+
+    // ===== SIGNATURE CANVAS =====
+    let sigDrawing = false;
+    let sigCtx = null;
+
+    function initSig() {
+        const canvas = document.getElementById('sigCanvas');
+        if (canvas._inited) return;
+        canvas._inited = true;
+        sigCtx = canvas.getContext('2d');
+        sigCtx.strokeStyle = '#1a2a6e';
+        sigCtx.lineWidth = 2;
+        sigCtx.lineCap = 'round';
+
+        function getPos(e) {
+            const r = canvas.getBoundingClientRect();
+            const src = e.touches ? e.touches[0] : e;
+            return { x: src.clientX - r.left, y: src.clientY - r.top };
+        }
+        canvas.addEventListener('mousedown', e => { sigDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
+        canvas.addEventListener('mousemove', e => { if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
+        canvas.addEventListener('mouseup', () => sigDrawing = false);
+        canvas.addEventListener('mouseleave', () => sigDrawing = false);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); sigDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); }, { passive: false });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!sigDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); }, { passive: false });
+        canvas.addEventListener('touchend', () => sigDrawing = false);
+    }
+
+    function clearSig() {
+        const canvas = document.getElementById('sigCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function getSigDataUrl() {
+        const canvas = document.getElementById('sigCanvas');
+        // Check if canvas has any drawing
+        const ctx = canvas.getContext('2d');
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const hasDrawing = Array.from(data).some(v => v !== 0);
+        return hasDrawing ? canvas.toDataURL('image/png') : null;
+    }
+
+    // ===== PRINT FACTURE =====
+    function buildFactureHTML() {
+        updateTotals();
+        const gNom = document.getElementById('f_garage_nom').value || 'Garage';
+        const gTel = document.getElementById('f_garage_tel').value || '';
+        const gAdr = document.getElementById('f_garage_adr').value || '';
+        const gRc  = document.getElementById('f_garage_rc').value || '';
+        const cNom = document.getElementById('f_client_nom').value || 'Client';
+        const cTel = document.getElementById('f_client_tel').value || '';
+        const cAdr = document.getElementById('f_client_adr').value || '';
+        const cVeh = document.getElementById('f_client_veh').value || '';
+        const notes = document.getElementById('f_notes') ? document.getElementById('f_notes').value.trim() : '';
+        const tvaRate = parseFloat(document.getElementById('tvaSelect').value);
+        const items = getItems().filter(i => i.desc || i.montant > 0);
+        const ht = items.reduce((s, i) => s + i.montant, 0);
+        const tva = ht * tvaRate / 100;
+        const ttc = ht + tva;
+        const sigUrl = getSigDataUrl();
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('fr-FR');
+        const numFact = 'FAC-' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*900)+100);
+
+        const rowsHtml = items.length ? items.map(i =>
+            `<tr><td>${i.desc || '-'}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">${fmt(i.pu)} DZD</td><td style="text-align:right;font-weight:600">${fmt(i.montant)} DZD</td></tr>`
+        ).join('') : '<tr><td colspan="4" style="text-align:center;color:#999;padding:16px">Aucune prestation</td></tr>';
+
+        const sigHtml = sigUrl
+            ? `<img style="border:1px solid #ccc;border-radius:6px;width:200px;height:80px;object-fit:contain" src="${sigUrl}" alt="Signature"/>`
+            : `<div style="border:1px solid #ccc;border-radius:6px;width:200px;height:80px;"></div>`;
+
+        const notesHtml = notes ? `<div style="margin-top:20px;padding:10px 14px;background:#f8fafc;border-left:3px solid #7c6fcd;border-radius:4px;font-size:12px;color:#555"><strong>Notes:</strong> ${notes}</div>` : '';
+
+        return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+        <title>Facture ${numFact}</title>
+        <style>
+            *{margin:0;padding:0;box-sizing:border-box}
+            body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:20mm 18mm}
+            .p-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:14px;border-bottom:2px solid #1a2a6e}
+            .p-garage-name{font-size:22px;font-weight:900;color:#1a2a6e}
+            .p-garage-info{font-size:12px;color:#555;margin-top:4px;line-height:1.7}
+            .p-invoice-meta{text-align:right}
+            .p-invoice-title{font-size:22px;font-weight:800;color:#1a2a6e;letter-spacing:2px}
+            .p-invoice-num{font-size:12px;color:#555;margin-top:4px;line-height:1.7}
+            .p-client-block{background:#f1f5f9;border-radius:8px;padding:12px 16px;margin-bottom:20px}
+            .p-client-title{font-weight:700;font-size:11px;text-transform:uppercase;color:#7c6fcd;margin-bottom:6px;letter-spacing:0.5px}
+            .p-client-info{font-size:13px;line-height:1.7}
+            table{width:100%;border-collapse:collapse;margin-bottom:16px}
+            th{background:#1a2a6e;color:white;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;text-align:left}
+            th:last-child,th:nth-child(3),th:nth-child(2){text-align:right}
+            td{padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:13px}
+            tr:nth-child(even) td{background:#f8fafc}
+            .p-totals{display:flex;flex-direction:column;align-items:flex-end;gap:5px;margin-bottom:24px}
+            .p-total-row{display:flex;gap:50px;font-size:13px;min-width:280px;justify-content:space-between}
+            .p-total-row span:first-child{color:#555}
+            .p-total-row.grand{font-weight:800;font-size:16px;color:#1a2a6e;border-top:2px solid #1a2a6e;padding-top:7px;margin-top:4px}
+            .p-sig-section{display:flex;justify-content:space-between;margin-top:30px}
+            .p-sig-box{text-align:center}
+            .p-sig-label{font-size:11px;color:#555;margin-bottom:8px;text-transform:uppercase;font-weight:700;letter-spacing:0.5px}
+            .p-footer{text-align:center;font-size:11px;color:#999;margin-top:30px;border-top:1px solid #e2e8f0;padding-top:10px}
+            @media print{@page{margin:15mm 12mm;size:A4}}
+        </style></head><body>
+        <div class="p-header">
+            <div>
+                <div class="p-garage-name">${gNom}</div>
+                <div class="p-garage-info">${gAdr ? gAdr + '<br>' : ''}${gTel ? 'Tél: ' + gTel + '<br>' : ''}${gRc || ''}</div>
+            </div>
+            <div class="p-invoice-meta">
+                <div class="p-invoice-title">FACTURE</div>
+                <div class="p-invoice-num">N° ${numFact}<br>Date: ${dateStr}</div>
+            </div>
+        </div>
+        <div class="p-client-block">
+            <div class="p-client-title">Facturé à</div>
+            <div class="p-client-info">
+                <strong>${cNom}</strong>${cTel ? ' &nbsp;|&nbsp; Tél: ' + cTel : ''}<br>
+                ${cAdr ? cAdr + '<br>' : ''}${cVeh ? 'Véhicule: <strong>' + cVeh + '</strong>' : ''}
+            </div>
+        </div>
+        <table>
+            <thead><tr><th>Description</th><th style="text-align:center">Qté</th><th style="text-align:right">Prix unitaire</th><th style="text-align:right">Montant</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="p-totals">
+            <div class="p-total-row"><span>Sous-total HT</span><span>${fmt(ht)} DZD</span></div>
+            <div class="p-total-row"><span>TVA (${tvaRate}%)</span><span>${fmt(tva)} DZD</span></div>
+            <div class="p-total-row grand"><span>Total TTC</span><span>${fmt(ttc)} DZD</span></div>
+        </div>
+        ${notesHtml}
+        <div class="p-sig-section">
+            <div class="p-sig-box">
+                <div class="p-sig-label">Signature du client</div>
+                ${sigHtml}
+            </div>
+            <div class="p-sig-box">
+                <div class="p-sig-label">Cachet du garage</div>
+                <div style="border:1px solid #ccc;border-radius:6px;width:200px;height:80px;"></div>
+            </div>
+        </div>
+        <div class="p-footer">${gNom}${gAdr ? ' — ' + gAdr : ''}${gTel ? ' — Tél: ' + gTel : ''}${gRc ? ' — ' + gRc : ''}</div>
+        </body></html>`;
+    }
+
+    function printFacture() {
+        const html = buildFactureHTML();
+        const win = window.open('', '_blank', 'width=900,height=700');
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); }, 400);
+    }
+</script>
+</body>
+</html>

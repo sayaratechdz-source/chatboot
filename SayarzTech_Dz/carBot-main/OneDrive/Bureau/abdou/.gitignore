@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environnement virtuel
+backend/venv/
+venv/
+env/
+.env
+
+# Base de données (ne pas partager les données locales)
+backend/chatbot_auto.db
+*.db
+*.sqlite3
+
+# Fichiers temporaires
+backend/fix_bold.py
+backend/fix_prompt.py
+backend/patch_sp.py
+backend/_build_agent*.py
+
+# Node / React Native
+AutoChatbot/node_modules/
+AutoChatbot/.expo/
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets & credentials
+*.pem
+*.key
+*.cert
+backend/.env
+.env.local
+.env.production
+
+# Python virtual env (extra patterns)
+.venv/
