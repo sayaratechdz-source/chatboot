@@ -759,7 +759,7 @@
 </div>
 
 <script>
-    const API_URL = 'http://localhost:8000/api/chat';
+    const API_URL = window.location.origin + '/api/chat';
     const sessionId = 'web-' + Date.now();
     let isFirstMessage = true;
     let pendingImage = null;
@@ -803,15 +803,22 @@
 
     function renderHistory() {
         const list = document.getElementById('historyList');
-        const empty = document.getElementById('historyEmpty');
+        let empty = document.getElementById('historyEmpty');
+        // Recreate empty element if it was removed from DOM
+        if (!empty) {
+            empty = document.createElement('div');
+            empty.id = 'historyEmpty';
+            empty.className = 'sidebar-empty';
+            empty.textContent = 'Aucune conversation';
+        }
         if (conversations.length === 0) {
-            empty.style.display = 'block';
             list.innerHTML = '';
+            empty.style.display = 'block';
             list.appendChild(empty);
             return;
         }
-        empty.style.display = 'none';
         list.innerHTML = '';
+        empty.style.display = 'none';
         [...conversations].reverse().forEach(conv => {
             const item = document.createElement('div');
             item.className = 'history-item' + (conv.id === currentConvId ? ' active' : '');
