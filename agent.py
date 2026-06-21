@@ -1,7 +1,7 @@
 import os
 import re
 import json
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from groq import Groq
 from dotenv import load_dotenv
 from database import SessionLocal
@@ -39,6 +39,11 @@ def add_to_history(session_id: str, role: str, content: str):
     # Garder max 10 échanges (20 messages) pour pas dépasser le context
     if len(history) > 20:
         _sessions[session_id] = history[-20:]
+    # Nettoyage mémoire: si trop de sessions, supprimer les plus anciennes
+    if len(_sessions) > 1000:
+        oldest_keys = list(_sessions.keys())[:len(_sessions) - 1000]
+        for k in oldest_keys:
+            del _sessions[k]
 
 # ---------------------------------------------------------------------------
 # System prompt
@@ -171,8 +176,8 @@ def _clean(text: str) -> str:
     text = re.sub(r"\*([^*\n]+)\*", r"\1", text)
     text = re.sub(r"#{1,6} ?", "", text)
     text = re.sub(r"`+[^`]*`+", "", text)
-    # Supprime les blocs JSON accidentels { ... }
-    text = re.sub(r"\{[^}]{0,200}\}", "", text)
+    # Supprime uniquement les blocs JSON accidentels { "key": ... } (avec deux points)
+    text = re.sub(r"\{[^}]{0,200}:[^}]{0,200}\}", "", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
@@ -362,8 +367,10 @@ async def process_message(user_message: str, session_id: str, image_b64=None, me
 
     # Construire les messages avec historique
     history = get_history(session_id)
+    # Limiter l'historique dans le message pour éviter les doublons
+    history_copy = list(history)
     messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
+    messages.extend(history_copy)
     messages.append({"role": "user", "content": user_message})
 
     # Force garage tool si demande directe
@@ -382,17 +389,22 @@ async def process_message(user_message: str, session_id: str, image_b64=None, me
         tool_result = execute_tool("trouver_garage", tool_inputs)
         tools_triggered.append("trouver_garage")
 
-        messages[-1]["content"] = (
+        # Build a separate message list for the API call so history stays clean
+        augmented_content = (
             f"{user_message}\n\n[INFO SYSTÈME - NE PAS AFFICHER EN JSON]: "
             f"Garages trouvés dans la base de données: {tool_result}\n"
             "Présente ces garages naturellement: nom, ville, téléphone. Pas de JSON, pas de tableau."
         )
+        api_messages = [{"role": "system", "content": system_prompt}]
+        api_messages.extend(history_copy)
+        api_messages.append({"role": "user", "content": augmented_content})
 
         try:
             response = get_client().chat.completions.create(
-                model=GROQ_MODEL, messages=messages, max_tokens=1024
+                model=GROQ_MODEL, messages=api_messages, max_tokens=1024
             )
             reply = _clean(response.choices[0].message.content) or _clean(tool_result)
+            # Save the original user message (not the injected one) to history
             add_to_history(session_id, "user", user_message)
             add_to_history(session_id, "assistant", reply)
             return reply, tools_triggered

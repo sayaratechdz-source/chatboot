@@ -66,29 +66,33 @@ def get_commandes(db: Session, skip: int = 0, limit: int = 100) -> List[Commande
 
 def create_commande(db: Session, client_id: Optional[int], pieces: List[dict],
                     session_id: Optional[str] = None, vehicule_id: Optional[int] = None) -> Commande:
-    commande = Commande(
-        client_id=client_id,
-        session_id=session_id,
-        vehicule_id=vehicule_id,
-        total=0.0
-    )
-    db.add(commande)
-    db.flush()
+    try:
+        commande = Commande(
+            client_id=client_id,
+            session_id=session_id,
+            vehicule_id=vehicule_id,
+            total=0.0
+        )
+        db.add(commande)
+        db.flush()
 
-    total = 0.0
-    for item in pieces:
-        piece = db.query(Piece).filter(Piece.id == item["piece_id"]).first()
-        if piece:
-            commande_item = CommandeItem(
-                commande_id=commande.id,
-                piece_id=piece.id,
-                quantite=item.get("quantite", 1),
-                prix_unitaire=piece.prix
-            )
-            db.add(commande_item)
-            total += piece.prix * item.get("quantite", 1)
+        total = 0.0
+        for item in pieces:
+            piece = db.query(Piece).filter(Piece.id == item["piece_id"]).first()
+            if piece:
+                commande_item = CommandeItem(
+                    commande_id=commande.id,
+                    piece_id=piece.id,
+                    quantite=item.get("quantite", 1),
+                    prix_unitaire=piece.prix
+                )
+                db.add(commande_item)
+                total += piece.prix * item.get("quantite", 1)
 
-    commande.total = total
-    db.commit()
-    db.refresh(commande)
-    return commande
+        commande.total = total
+        db.commit()
+        db.refresh(commande)
+        return commande
+    except Exception:
+        db.rollback()
+        raise

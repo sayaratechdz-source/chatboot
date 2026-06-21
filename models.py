@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -11,6 +11,7 @@ class Vehicule(Base):
     modele = Column(String, index=True)
     annee = Column(Integer)
     immatriculation = Column(String, unique=True, index=True)
+    motorisation = Column(String, nullable=True)
     
     pieces = relationship("Piece", back_populates="vehicule_compatible")
 

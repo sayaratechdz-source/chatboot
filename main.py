@@ -17,7 +17,10 @@ from seed_data import seed_database
 
 # Création des tables et initialisation des données au démarrage
 models.Base.metadata.create_all(bind=engine)
-seed_database()
+try:
+    seed_database()
+except Exception as _seed_err:
+    print(f"[WARNING] seed_database() failed: {_seed_err}")
 
 app = FastAPI(
     title="AutoChatbot - API",
