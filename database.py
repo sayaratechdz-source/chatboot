@@ -16,10 +16,10 @@ if DATABASE_URL.startswith("postgres://"):
 # Arguments de connexion selon le type de base de données
 if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
+    engine = create_engine(DATABASE_URL, connect_args=connect_args)
 else:
-    connect_args = {}
-
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+    # PostgreSQL sur Railway - pool_pre_ping évite les connexions mortes
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
