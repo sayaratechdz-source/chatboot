@@ -10,16 +10,22 @@ import models
 
 load_dotenv()
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
+# Le client est initialisé de façon lazy pour supporter Railway (env vars injectées au runtime)
+_client: Groq | None = None
+
 def get_client() -> Groq:
-    """Crée un nouveau client Groq à chaque appel pour garantir la lecture de l'env Railway."""
-    api_key = os.environ.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "GROQ_API_KEY manquant! Ajoutez-le dans les variables Railway ou dans le fichier .env local."
-        )
-    return Groq(api_key=api_key)
+    global _client
+    if _client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "GROQ_API_KEY manquant! Ajoutez-le dans les variables Railway ou dans le fichier .env local."
+            )
+        _client = Groq(api_key=api_key)
+    return _client
 
 # ---------------------------------------------------------------------------
 # Prompts

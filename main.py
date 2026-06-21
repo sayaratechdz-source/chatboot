@@ -145,13 +145,7 @@ async def favicon():
 @app.get("/health", tags=["Monitoring"])
 async def health_check():
     """Vérifie que le serveur fonctionne."""
-    import os
-    key = os.environ.get("GROQ_API_KEY", "")
-    return {
-        "status": "ok",
-        "groq_key_set": bool(key),
-        "groq_key_prefix": key[:8] + "..." if len(key) > 8 else "EMPTY"
-    }
+    return {"status": "ok", "message": "AutoChatbot API is running"}
 
 
 @app.get("/", tags=["Monitoring"])
